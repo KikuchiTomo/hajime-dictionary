@@ -10,6 +10,8 @@
 let converter = KanaKanjiConverter(dicdataStore: DicdataStore(dictionaryURL: dictionaryDirectory))
 ```
 
+`Dictionary/SHA256SUMS` に辞書のファイルごとの SHA-256 があります．使う側で一覧の SHA-256 を持っておき，一覧と各ファイルを確かめてから読むと，差し替えられた辞書を読まずに済みます．
+
 辞書の形は AzooKeyKanaKanjiConverter の版に合わせています．作るときに使った版は `builder/Package.swift` の revision です．
 
 ## 中身

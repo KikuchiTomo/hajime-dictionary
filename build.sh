@@ -18,6 +18,8 @@ python3 -I "$root/tools/merge_mozc.py" "$work/azookey.tsv" "$work/sources/mozc" 
 package="$work/package/hajime-dictionary-$version"
 rm -rf "$work/package"
 "$root/tools/assemble.sh" "$work/worddict.tsv" "$azookey" "$package/Dictionary"
+# 辞書のファイルごとの SHA-256 の一覧．使う側は一覧の SHA-256 を持っておき，一覧と各ファイルを確かめてから読む
+(cd "$package/Dictionary" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort | while read -r file; do shasum -a 256 "$file"; done > SHA256SUMS)
 cp -R "$root/LICENSES" "$root/NOTICE.md" "$package/"
 printf '%s\n' "$version" > "$package/VERSION"
 mkdir -p "$root/dist"
