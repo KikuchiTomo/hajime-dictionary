@@ -8,7 +8,7 @@ let package = Package(
         // はじめ(Hajime IME)が使う fork と同じ revision に固定する．辞書の形がこの版の読み込み方と合うようにするため
         .package(
             url: "https://github.com/KikuchiTomo/AzooKeyKanaKanjiConverter",
-            revision: "c456c0d4dda385107ac48f666d7ee289710fda25",
+            revision: "b5856b1a40fc55cef4a380de4c21bce76dd704a5",
             traits: []
         ),
     ],

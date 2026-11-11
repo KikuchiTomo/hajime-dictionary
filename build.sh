@@ -1,6 +1,6 @@
 #!/bin/sh
 # 辞書を作り，配布物(dist/hajime-dictionary-<版>.tar.gz)にする．
-# 元のデータの取得と確認 → azooKey の辞書の書き出し → Mozc の語を足す → 外来語の英字の綴りを足す → LOUDS を作る → ライセンスの表示を添えて固める
+# 元のデータの取得と確認 → azooKey の辞書の書き出し → Mozc の語を足す → 外来語の英字の綴りを足す → Mozc UT 辞書の語を足す → LOUDS を作る → ライセンスの表示を添えて固める
 #
 # 使い方: ./build.sh <版(例: 0.1.0)> [作業の置き場所(既定: work/)]
 set -eu
@@ -15,7 +15,8 @@ azookey="$work/sources/azookey/Dictionary"
 python3 -I "$root/tools/dump_azookey.py" "$azookey" "$work/azookey.tsv"
 python3 -I "$root/tools/merge_mozc.py" "$work/azookey.tsv" "$work/sources/mozc" "$work/sources/ipadic/left-id.def" "$work/merged.tsv" \
   --min-reading-length "$min_reading_length"
-python3 -I "$root/tools/add_loanwords.py" "$work/merged.tsv" "$root/sources/wikidata-loanwords.tsv" "$work/sources/ipadic/left-id.def" "$work/worddict.tsv"
+python3 -I "$root/tools/add_loanwords.py" "$work/merged.tsv" "$root/sources/wikidata-loanwords.tsv" "$work/sources/ipadic/left-id.def" "$work/loanwords.tsv"
+python3 -I "$root/tools/add_ut.py" "$work/loanwords.tsv" "$work/sources/ut" "$work/sources/ipadic/left-id.def" "$work/worddict.tsv"
 package="$work/package/hajime-dictionary-$version"
 rm -rf "$work/package"
 "$root/tools/assemble.sh" "$work/worddict.tsv" "$azookey" "$package/Dictionary"

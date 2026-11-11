@@ -1,0 +1,24 @@
+Mozc UT 辞書(https://github.com/utuhiro78)の各リポジトリの LICENSE ファイルの内容です．作者: UTUMI Hirosi(utuhiro78)
+
+==== https://github.com/utuhiro78/mozcdic-ut-sudachidict(コミット 13129ddebe1cb8eabb63feccbe157adec4e1de01)の LICENSE
+
+[Apache License, Version 2.0](https://github.com/WorksApplications/SudachiDict/blob/develop/LEGAL)
+
+
+==== https://github.com/utuhiro78/mozcdic-ut-neologd(コミット d8307abf02b830b185c9320822cffa0d0787c54e)の LICENSE
+
+[COPYING](https://github.com/neologd/mecab-ipadic-neologd/blob/master/COPYING)
+
+
+==== https://github.com/utuhiro78/mozcdic-ut-personal-names(コミット 3da38e0187c5db754c420a5733ae95640652323c)の LICENSE
+
+Apache License, Version 2.0
+
+
+==== https://github.com/utuhiro78/mozcdic-ut-place-names(コミット 7e2b4422837846ea2e78d1a34856d95001d5941a)の LICENSE
+
+[Public Domain](https://www.post.japanpost.jp/zipcode/dl/readme.html)
+
+> 郵便番号データに限っては日本郵便株式会社は著作権を主張しません。
+
+

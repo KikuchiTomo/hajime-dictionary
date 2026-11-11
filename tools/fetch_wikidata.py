@@ -23,11 +23,16 @@
 import collections
 import json
 import math
+import pathlib
 import re
 import sys
 import time
 import urllib.parse
 import urllib.request
+
+# 同じディレクトリの spelling.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from spelling import similar  # noqa: E402
 
 ENDPOINT = "https://qlever.dev/api/wikidata"
 THRESHOLD = 0.8
@@ -136,56 +141,6 @@ if raw_path and not raw:
     with open(raw_path, "w", encoding="utf-8") as file:
         json.dump({"pairs": pairs, "classes": {item: sorted(values) for item, values in classes.items()}}, file, ensure_ascii=False)
 
-# カタカナをローマ字にする表．子音の並びを比べるためだけに使うので，長音と促音は捨てる
-KANA = dict(zip(
-    "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヰヱヲン"
-    "ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポヴァィゥェォャュョヮ",
-    "a i u e o ka ki ku ke ko sa shi su se so ta chi tsu te to na ni nu ne no ha hi fu he ho ma mi mu me mo ya yu yo "
-    "ra ri ru re ro wa i e o n ga gi gu ge go za ji zu ze zo da ji zu de do ba bi bu be bo pa pi pu pe po vu "
-    "a i u e o ya yu yo wa".split(),
-))
-assert len(KANA) == 83
-CONSONANTS = {"k": "K", "g": "K", "q": "K", "c": "K", "x": "K", "s": "S", "z": "S", "j": "S", "t": "T", "d": "T",
-              "n": "N", "m": "N", "h": "H", "f": "H", "b": "P", "p": "P", "v": "P", "r": "R", "l": "R", "C": "C"}
-
-
-def skeleton(text, english):
-    """子音の並び．似た音の子音は同じ文字にまとめ，母音と半母音(w・y)は捨てる"""
-    letters = re.sub("[^a-z]", "", text.lower())
-    if english:
-        letters = re.sub("c(?=[eiy])", "s", letters)
-        for before, after in [("ph", "f"), ("th", "s"), ("ck", "k"), ("qu", "kw"), ("gh", ""), ("wh", "w"), ("x", "ks")]:
-            letters = letters.replace(before, after)
-        # 母音の前にない r はカタカナでは長音になる(network → ネットワーク)
-        letters = re.sub("r(?![aeiouy])", "", letters)
-    for before, after in [("sh", "s"), ("ch", "C"), ("ts", "t"), ("tz", "t")]:
-        letters = letters.replace(before, after)
-    result = []
-    for letter in letters:
-        value = CONSONANTS.get(letter)
-        if value and (not result or result[-1] != value):
-            result.append(value)
-    return "".join(result)
-
-
-def common_length(a, b):
-    previous = [0] * (len(b) + 1)
-    for x in a:
-        current = [0]
-        for j, y in enumerate(b):
-            current.append(previous[j] + 1 if x == y else max(previous[j + 1], current[j]))
-        previous = current
-    return previous[-1]
-
-
-def similar(katakana, english):
-    a = skeleton("".join(KANA.get(c, "") for c in katakana), False)
-    b = skeleton(english, True)
-    if min(len(a), len(b)) < 2 or a[0] != b[0] or a[-1] != b[-1]:
-        return False
-    return 2 * common_length(a, b) / (len(a) + len(b)) >= THRESHOLD
-
-
 chosen = {}
 pieces = collections.defaultdict(lambda: {"items": set(), "kind": "proper", "links": 0})
 for item, ja, en, links in pairs:
@@ -196,7 +151,7 @@ for item, ja, en, links in pairs:
         continue
     kind = "person" if HUMAN in item_classes else "common" if en[0].islower() else "proper"
     minimum = {"common": 1, "person": MIN_LINKS_PERSON, "proper": MIN_LINKS_PROPER}[kind]
-    if links < minimum or not similar(ja, en):
+    if links < minimum or not similar(ja, en, THRESHOLD):
         continue
     names = [part for part in re.split("[・＝]", ja) if part]
     words = en.replace("-", " ").split()
@@ -211,7 +166,7 @@ for item, ja, en, links in pairs:
         chosen[key] = (kind, links, item)
     if len(names) == len(words) > 1:
         for name, word in zip(names, words):
-            if len(name) >= MIN_READING_LENGTH and similar(name, word):
+            if len(name) >= MIN_READING_LENGTH and similar(name, word, THRESHOLD):
                 piece = pieces[(name, word)]
                 piece["items"].add(item)
                 piece["links"] = max(piece["links"], links)

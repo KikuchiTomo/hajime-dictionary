@@ -13,3 +13,8 @@ mozc/dictionary08.txt 50a31bb5fc1646721b00be371a5695dffab1292bda143e1e59cc70cbbd
 mozc/dictionary09.txt 4e5fcd4cbfbf11395166a37b506f547fc54d20edc0884f5184ecd3fc705f0d9a https://raw.githubusercontent.com/google/mozc/e5f1494923a0a624d01f19c50d57bbdfa03ea5ba/src/data/dictionary_oss/dictionary09.txt
 mozc/id.def 07a05a268c3783b7e02b36e4aa591555a2dd19a1f3c93891576740761c154f2d https://raw.githubusercontent.com/google/mozc/e5f1494923a0a624d01f19c50d57bbdfa03ea5ba/src/data/dictionary_oss/id.def
 ipadic/left-id.def 6d07aea525bc9730a4a07d12cc9f50abef4700431c938840b68896e79c761fe4 https://raw.githubusercontent.com/taku910/mecab/61b90ba6e669dc2d7d533d4a80d206f3b31d52b1/mecab-ipadic/left-id.def
+# Mozc UT 辞書(utuhiro78 さん)．品詞は無い．tools/add_ut.py が足す語を選ぶ
+ut/mozcdic-ut-sudachidict.txt.bz2 1b9555338cc36606a5f497a2f57a0f9b948fa02d8c13d18ee9cfb5c99fb9d86e https://raw.githubusercontent.com/utuhiro78/mozcdic-ut-sudachidict/13129ddebe1cb8eabb63feccbe157adec4e1de01/mozcdic-ut-sudachidict.txt.bz2
+ut/mozcdic-ut-neologd.txt.bz2 231b9b5e4ad16baa3f79680f4e4615f7060511a41da4aac2149789eace3f2411 https://raw.githubusercontent.com/utuhiro78/mozcdic-ut-neologd/d8307abf02b830b185c9320822cffa0d0787c54e/mozcdic-ut-neologd.txt.bz2
+ut/mozcdic-ut-personal-names.txt.bz2 fa542ba4a2105af1f86608fa08721c4d1af298a1330e90c7e3046a4a1239f6c1 https://raw.githubusercontent.com/utuhiro78/mozcdic-ut-personal-names/3da38e0187c5db754c420a5733ae95640652323c/mozcdic-ut-personal-names.txt.bz2
+ut/mozcdic-ut-place-names.txt.bz2 addad60898216af8a1736fdef7508ec7e60e709979044ad2f40609959401c688 https://raw.githubusercontent.com/utuhiro78/mozcdic-ut-place-names/7e2b4422837846ea2e78d1a34856d95001d5941a/mozcdic-ut-place-names.txt.bz2
