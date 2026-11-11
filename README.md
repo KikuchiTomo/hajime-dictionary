@@ -1,6 +1,6 @@
 # hajime-dictionary
 
-[Hajime IME](https://github.com/KikuchiTomo/Hajime) のかな漢字変換の辞書です．[azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書に，[Mozc](https://github.com/google/mozc) の辞書(dictionary_oss)にしかない語と，[Wikidata](https://www.wikidata.org/) から作った外来語の英字の綴り(「レッドハット」→ Red Hat，「にゅーらる」→ neural)を足しています．azooKey の辞書と同じ形(LOUDS)なので，azooKey のエンジンを使う IME から読めます．
+[Hajime IME](https://github.com/KikuchiTomo/Hajime) のかな漢字変換の辞書です．[azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書に，[Mozc](https://github.com/google/mozc) の辞書(dictionary_oss)にしかない語と，[Wikidata](https://www.wikidata.org/) から作った外来語の英字の綴り(「レッドハット」→ Red Hat，「にゅーらる」→ neural)を足し，さらに [Mozc UT 辞書](https://github.com/utuhiro78)(SudachiDict・NEologd・人名・地名)の語を足しています．azooKey の辞書と同じ形(LOUDS)なので，azooKey のエンジンを使う IME から読めます．
 
 ## 入手
 
@@ -21,14 +21,15 @@ let converter = KanaKanjiConverter(dicdataStore: DicdataStore(dictionaryURL: dic
 | azooKey の辞書の語 | 566,214 |
 | Mozc から足した語 | 707,915 |
 | Wikidata から足した外来語の英字の綴り | 130,536 |
-| 合計 | 1,404,665 |
+| Mozc UT 辞書から足した語 | 1,437,675 |
+| 合計 | 2,842,340 |
 
-展開すると約 78 MB です．
+展開すると約 188 MB です．
 
 ## 作り方
 
 ```sh
-./build.sh 0.2.0
+./build.sh 0.3.0
 ```
 
 Swift 6.1 以降と Python 3 が要ります．Python のスクリプトは標準ライブラリだけで動きます．
@@ -41,7 +42,8 @@ Swift 6.1 以降と Python 3 が要ります．Python のスクリプトは標�
    - 読みが 4 文字より短い語は足しません．短い読みでは，まれな語が既存の語を押しのけて変換を悪くしたためです(「じたい」が「次隊」になるなど)
    - 読みをわざと誤らせた表記ゆれの補正の行(SPELLING_CORRECTION)は足しません
 4. `tools/add_loanwords.py` が，外来語の英字の綴りを足します(下の「外来語の英字の綴り」)
-5. `tools/assemble.sh` が，fork の `DictionaryBuilder` で LOUDS を作ります．接続のコスト・予測・意味の接続は azooKey の辞書のものをそのまま使います
+5. `tools/add_ut.py` が，Mozc UT 辞書の語を足します(下の「Mozc UT 辞書の語」)
+6. `tools/assemble.sh` が，fork の `DictionaryBuilder` で LOUDS を作ります．接続のコスト・予測・意味の接続は azooKey の辞書のものをそのまま使います
 
 ## 外来語の英字の綴り
 
@@ -55,6 +57,18 @@ python3 -I tools/fetch_wikidata.py sources/wikidata-loanwords.tsv --raw work/wik
 - 辞書に足すのは，同じ読みのカタカナ語が辞書にあるか，読みが辞書に無い語だけです．かなや漢字の語だけがある読み(「サンサイ」→ 山菜)には足しません
 - 打ち方の揺れの読み(ヴ → ブ，トゥ → ツ，末尾の長音を除いたもの)も足します．「ウブンツ」でも Ubuntu が出ます
 - 値は，同じ綴りが別の読みで辞書にあればその値に，同じ読みのカタカナ語があればその語の少し下に合わせます．カタカナ語が先に出て，英字はその次に選べます
+
+## Mozc UT 辞書の語
+
+utuhiro78 さんの Mozc UT 辞書のうち，配布物に入れられるライセンスの 4 つ(mozcdic-ut-sudachidict・mozcdic-ut-neologd・mozcdic-ut-personal-names・mozcdic-ut-place-names)から語を足します．`sources/sources.txt` にリポジトリのコミットと SHA-256 を書いてあり，同じファイルから同じ辞書ができます．
+
+UT 辞書は読みと表記だけで品詞を持たず，雑多な語も多いので，次のように足します．
+
+- 品詞: 人名の辞書は「名詞,固有名詞,人名,一般」，地名の辞書は「名詞,固有名詞,地域,一般」，SudachiDict と NEologd から作った辞書は「名詞,固有名詞,一般」にします
+- 除く語: 読みが 4 文字より短いか 20 文字より長い語，表記が 20 文字より長い語，名前に使う記号(空白・=-&'.!?)以外の記号やほかの文字体系(ハングル・ギリシャ文字など)を含む語，記号と数字だけの語，表記のかなの部分が読みに現れない語(「四国ドック」を「シコクドックカブシキガイシャ」と読む組など)，英字だけの表記で，英字を 1 文字ずつ読んだ読みでも子音の並びが似た読みでもない語
+- 値: 既存の語より控えめにします．品詞ごとに既存の語の値の下から 10% の位置を基準にし，元の辞書のコストと，複数の UT 辞書にあるかで少しだけ上げます．同じ読みの語が既にあれば，そのどれよりも下に置きます．既存の候補の並びは変わらず，UT 辞書の語はそのあとに入ります
+
+配布物に入れない UT 辞書(mozcdic-ut-jawiki・mozcdic-ut-edict2 は CC BY-SA，mozcdic-ut-skk-jisyo・mozcdic-ut-alt-cannadic は GPL)は使いません．UT 辞書を組み合わせる merge-ut-dictionaries が使う Wikipedia の見出し(CC BY-SA)によるコストの調整も使いません．
 
 ## 評価
 
@@ -70,6 +84,17 @@ Hajime の `make evaluate DICTIONARY=<展開した Dictionary>` で測れます�
 Zenzai を使う場合，第 1 候補は変わらず，上位 10 候補に正解が入る割合が 8〜11 ポイント上がりました．
 
 v0.2.0(外来語の英字の綴りを足した版)は，Zenzai を使う場合も使わない場合も，上の評価セットの結果が v0.1.1 と同じでした．英字の綴りはカタカナ語の次の候補に入ります．Zenzai を使う場合，「うぶんつ」の Ubuntu・「れっどはっと」の Red Hat は 2 番目，「にゅーらる」の neural は 3 番目の候補です(v0.1.1 では上位 10 候補に入りません)．
+
+v0.3.0(Mozc UT 辞書の語を足した版)と v0.2.0 の比較です(第 1 候補の正解率 / 上位 10 候補に正解が入った割合)．
+
+| 評価セット | v0.2.0，Zenzai あり | v0.3.0，Zenzai あり | v0.2.0，Zenzai なし | v0.3.0，Zenzai なし |
+|---|---|---|---|---|
+| 人名(Wikidata，300 語) | 28.7% / 44.0% | 28.7% / 89.7% | 27.3% / 45.3% | 28.3% / 65.0% |
+| 地名(Wikidata，300 語) | 43.3% / 58.3% | 43.3% / 65.0% | 40.3% / 57.7% | 40.3% / 60.3% |
+| その他(Wikidata，300 語) | 36.0% / 62.7% | 36.7% / 77.0% | 40.7% / 60.3% | 40.7% / 65.3% |
+| AJIMEE-Bench(200 文) | 86.0% / 87.0% | 86.0% / 87.0% | 45.0% / 72.5% | 45.0% / 72.5% |
+
+AJIMEE-Bench と Hajime の文の評価(conversion-basic)・打ち間違いの補正の評価は，1 件ずつ見ても v0.2.0 と同じ結果でした．UT 辞書の語は既存の候補のあとに入るので，第 1 候補はほとんど変わらず，上位 10 候補に入る固有名詞が増えます(Zenzai ありで「ないきむら」の内記村，「きりしまさーびすえりあ」の霧島サービスエリアが 5 番目の候補)．
 
 ## ライセンス
 
