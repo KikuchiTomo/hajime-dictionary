@@ -16,7 +16,7 @@ azookey="$work/sources/azookey/Dictionary"
 unihan="$work/sources/unihan/Unihan-16.0.0.zip"
 python3 -I "$root/tools/dump_azookey.py" "$azookey" "$work/azookey.tsv"
 python3 -I "$root/tools/merge_mozc.py" "$work/azookey.tsv" "$work/sources/mozc" "$work/sources/ipadic/left-id.def" "$work/merged.tsv" \
-  --min-reading-length "$min_reading_length" --unihan "$unihan"
+  --min-reading-length "$min_reading_length" --unihan "$unihan" --counter-readings "$root/sources/counter-readings.tsv"
 python3 -I "$root/tools/add_loanwords.py" "$work/merged.tsv" "$root/sources/wikidata-loanwords.tsv" "$work/sources/ipadic/left-id.def" "$work/loanwords.tsv"
 python3 -I "$root/tools/add_ut.py" "$work/loanwords.tsv" "$work/sources/ut" "$work/sources/ipadic/left-id.def" "$unihan" "$work/ut.tsv"
 python3 -I "$root/tools/add_neologd.py" "$work/ut.tsv" "$work/sources/neologd" "$work/sources/ipadic/left-id.def" "$unihan" "$work/neologd.tsv"
