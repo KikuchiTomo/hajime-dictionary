@@ -4,7 +4,8 @@
     python3 -I tools/merge_mozc.py <azooKey の TSV> <Mozc の dictionary_oss> <IPAdic の left-id.def> <出力.tsv> --unihan <Unihan.zip> [--penalty P]
 
 - azooKey の TSV は tools/dump_azookey.py で書き出したもの．azooKey の語は，文節の切れ端(促音で始まるカタカナの名詞「ッ」，
-  かなで書いた数詞の「はっ」．tools/brokenwords.py の azookey_fragment)のほかはすべて残す
+  かなで書いた数詞の「はっ」．tools/brokenwords.py の azookey_fragment)と，促音で切った交ぜ書きの名詞(てっ底・やっ介．
+  新聞の交ぜ書きの うっ血・ぼっ発 などは残す．azookey_mixed_spelling)のほかはすべて残す
 - Mozc の語は「読み・語」の組が azooKey に無いものだけを足す
 - 品詞: azooKey の cid は IPAdic(mecab-ipadic 2.7.0)の left-id と同じ番号．Mozc の id.def は独自の番号だが品詞の文字列は IPAdic 由来なので，
   文字列で IPAdic の番号に引き直す．7 列目(語彙)まで一致 → 7 列目を * にして一致 → 6 列目まで一致する最初のもの，の順に探し，
@@ -26,7 +27,7 @@ import sys
 
 # 同じディレクトリの brokenwords.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from brokenwords import SameReadingWords, azookey_fragment, broken, load_joyo  # noqa: E402
+from brokenwords import SameReadingWords, azookey_fragment, azookey_mixed_spelling, broken, load_joyo  # noqa: E402
 
 BUCKET = 500
 # 中央値を信じるのに要る語の数
@@ -88,21 +89,29 @@ for feature, number in ipadic.items():
 HIRAGANA_TO_KATAKANA = {code: code + 0x60 for code in range(0x3041, 0x3097)}
 
 feature_of_cid = {number: feature for feature, number in ipadic.items()}
+joyo = load_joyo(arguments.unihan)
 azookey = collections.defaultdict(list)
-azookey_lines = []
-removed_from_azookey = collections.Counter()
-same_reading = SameReadingWords()
+rows = []
 with open(arguments.azookey, encoding="utf-8") as file:
     for line in file:
         ruby, word, lcid, rcid, _, score = line.rstrip("\n").split("\t")
         azookey[(ruby, word)].append((int(lcid), int(rcid), float(score)))
-        reason = azookey_fragment(ruby, word, feature_of_cid.get(int(lcid), ""))
-        if reason:
-            removed_from_azookey[reason] += 1
-            continue
-        azookey_lines.append(line)
-        same_reading.add(ruby, word, float(score), feature_of_cid.get(int(lcid), ""))
-joyo = load_joyo(arguments.unihan)
+        rows.append((line, ruby, word, int(lcid), float(score)))
+# azooKey の語の促音で切った交ぜ書きは，azooKey の語(漢字だけの名詞)と比べて見分ける
+azookey_words = SameReadingWords()
+for _, ruby, word, lcid, score in rows:
+    azookey_words.add(ruby, word, score, feature_of_cid.get(lcid, ""))
+azookey_lines = []
+removed_from_azookey = collections.Counter()
+same_reading = SameReadingWords()
+for line, ruby, word, lcid, score in rows:
+    feature = feature_of_cid.get(lcid, "")
+    reason = azookey_fragment(ruby, word, feature) or azookey_mixed_spelling(ruby, word, feature, azookey_words, joyo)
+    if reason:
+        removed_from_azookey[reason] += 1
+        continue
+    azookey_lines.append(line)
+    same_reading.add(ruby, word, score, feature)
 
 skipped = collections.Counter()
 mozc = []

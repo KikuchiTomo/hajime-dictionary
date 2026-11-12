@@ -27,7 +27,7 @@ Wikidata の名前は，カタカナの読みと英字の綴りの組として�
 Mozc UT 辞書(作者: UTUMI Hirosi)の語は，読みと表記の組だけを使い，品詞とコストはこの辞書で決めて足しています(tools/add_ut.py)．一部の語は除いています．
 NEologd と SudachiDict の元のデータの語は，品詞を IPAdic の番号で表し，コストを azooKey の値に換算して足しています(tools/add_neologd.py・tools/add_sudachi.py)．一部の語は除いています．
 JMdict と Wikidata の語は，通常の辞書とは別の専門用語の辞書(terms.tsv)に，読み・表記・品詞・分野の組として入れています(tools/build_terms.py)．一部の語は除いています．
-v0.5.1 から，azooKey・Mozc・Mozc UT 辞書・NEologd・SudachiDict の語のうち，変換の候補を乱す壊れた書き方(交ぜ書き・読みのかなだけの語・文節の切れ端・NEologd の表記の揺れ)を除いています(tools/brokenwords.py)．
+v0.5.1 から，azooKey・Mozc・Mozc UT 辞書・NEologd・SudachiDict の語のうち，変換の候補を乱す壊れた書き方(交ぜ書き・読みのかなだけの語・文節の切れ端・NEologd の表記の揺れ)を除いています(tools/brokenwords.py)．v0.5.2 から，azooKey の辞書の促音で切った交ぜ書きの名詞(新聞の交ぜ書きを除く)も除いています．
 
 ## NO WARRANTY(ICOT Free Software の条件より)
 
