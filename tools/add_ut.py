@@ -1,7 +1,7 @@
 """worddict に，Mozc UT 辞書(utuhiro78 さんの mozcdic-ut-*)の語を足す．
 
 使い方:
-    python3 -I tools/add_ut.py <worddict.tsv> <UT 辞書の置き場所> <IPAdic の left-id.def> <出力.tsv>
+    python3 -I tools/add_ut.py <worddict.tsv> <UT 辞書の置き場所> <IPAdic の left-id.def> <Unihan.zip> <出力.tsv>
 
 UT 辞書の置き場所には mozcdic-ut-<名前>.txt.bz2 を置く(tools/fetch_sources.sh が取得する)．1 行は Mozc の辞書と同じ
 「読み(ひらがな)<TAB>左 ID<TAB>右 ID<TAB>コスト<TAB>表記」だが，ID はすべて 0000 で品詞は無い．
@@ -18,6 +18,7 @@ UT 辞書の置き場所には mozcdic-ut-<名前>.txt.bz2 を置く(tools/fetch
   - 表記のかなが読みと合わない．表記のかなの部分は，その順に読みに現れなければならない(漢字・英字・数字の部分は 1 文字以上の読み．
     漢字に挟まれたケは漢字と同じに扱う)
   - 表記が英字だけ(と ALLOWED_SYMBOLS)で，英字を 1 文字ずつ読んだ読みでも，子音の並びが似た読み(tools/spelling.py)でもない
+  - 壊れた書き方(tools/brokenwords.py．促音で切った交ぜ書き・読みのかなだけの名詞など)．常用漢字は Unihan データベースから読む
 - 値(azooKey の値．大きいほどよく使う)は，既存の語より控えめにする
   - 品詞ごとに，worddict にある同じ品詞の語の値の BASE_QUANTILE の分位を基準にする
   - SudachiDict と NEologd のコスト(元の辞書のコストから作った 8000〜8999)が小さいほど，最大 SOURCE_COST_BONUS 上げる
@@ -29,8 +30,9 @@ import collections
 import pathlib
 import sys
 
-# 同じディレクトリの wordfilter.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
+# 同じディレクトリの wordfilter.py と brokenwords.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from brokenwords import SameReadingWords, broken, load_joyo  # noqa: E402
 from wordfilter import HIRAGANA_TO_KATAKANA, problem  # noqa: E402
 
 # 辞書の名前と品詞．同じ組が複数の辞書にあれば，先に書いた辞書の品詞にする(人名と地名の辞書の品詞のほうが細かいため)
@@ -55,25 +57,29 @@ def quantile(values, q):
     return values[int((len(values) - 1) * q)]
 
 
-if len(sys.argv) != 5:
+if len(sys.argv) != 6:
     sys.exit(__doc__)
-worddict_path, ut_directory, ipadic_path, destination = sys.argv[1:]
+worddict_path, ut_directory, ipadic_path, unihan_path, destination = sys.argv[1:]
+joyo = load_joyo(unihan_path)
 
 ipadic = {}
 for line in pathlib.Path(ipadic_path).read_bytes().decode("euc_jp").splitlines():
     number, feature = line.split(" ", 1)
     ipadic[feature] = int(number)
 
+feature_of_cid = {number: feature for feature, number in ipadic.items()}
 lines = []
 existing = set()
 lowest_by_reading = {}
 values_by_cid = collections.defaultdict(list)
+same_reading = SameReadingWords()
 with open(worddict_path, encoding="utf-8") as file:
     for line in file:
         ruby, word, lcid, _, _, score = line.rstrip("\n").split("\t")
         lines.append(line)
         existing.add((ruby, word))
         value = float(score)
+        same_reading.add(ruby, word, value, feature_of_cid.get(int(lcid), ""))
         lowest_by_reading[ruby] = min(lowest_by_reading.get(ruby, value), value)
         values_by_cid[int(lcid)].append(value)
 
@@ -109,25 +115,34 @@ for name, feature in SOURCES:
             seen.add(key)
             if key in found:
                 previous_cid, previous_cost, sources = found[key]
-                found[key] = (previous_cid, min(previous_cost, int(cost)), sources + 1)
+                found[key] = (previous_cid, min(previous_cost, int(cost)), sources + [name])
             else:
-                found[key] = (cid, int(cost), 1)
+                found[key] = (cid, int(cost), [name])
 
 bases = {cid: quantile(values_by_cid[cid], BASE_QUANTILE) for _, feature in SOURCES for cid in [ipadic[feature]]}
 added = []
 capped = 0
+removed = collections.Counter()
+removed_by_source = collections.Counter()
 for (reading, word), (cid, cost, sources) in sorted(found.items()):
     # UT のコストは 8000〜8999(元の辞書のコストから作った値)．人名は 8000，地名は 9000 で揃っている
-    score = bases[cid] + SOURCE_COST_BONUS * min(1.0, max(0.0, (8999 - cost) / 999)) + MULTI_SOURCE_BONUS * (sources - 1)
-    if reading in lowest_by_reading and score > lowest_by_reading[reading] - SAME_READING_MARGIN:
+    score = bases[cid] + SOURCE_COST_BONUS * min(1.0, max(0.0, (8999 - cost) / 999)) + MULTI_SOURCE_BONUS * (len(sources) - 1)
+    is_capped = reading in lowest_by_reading and score > lowest_by_reading[reading] - SAME_READING_MARGIN
+    if is_capped:
         score = lowest_by_reading[reading] - SAME_READING_MARGIN
-        capped += 1
+    reason = broken(reading, word, score, same_reading, joyo, name=feature_of_cid[cid].startswith("名詞,固有名詞,人名"))
+    if reason:
+        removed[reason] += 1
+        removed_by_source.update(sources)
+        continue
+    capped += is_capped
     added.append(f"{reading}\t{word}\t{cid}\t{cid}\t{MID_GENERAL}\t{score:.4f}\n")
 
 with open(destination, "w", encoding="utf-8") as output:
     output.writelines(lines)
     output.writelines(added)
 
-counts = collections.Counter(cid for cid, _, _ in found.values())
+counts = collections.Counter(line.split("\t")[2] for line in added)
 print(f"UT 辞書から足した語: {len(added)}(品詞ごと {dict(counts)}，同じ読みの語の下に置いた語 {capped})，読んだ行: {dict(read)}，"
-      f"足さなかった行: {dict(skipped)}，基準の値: { {cid: round(value, 2) for cid, value in bases.items()} }", file=sys.stderr)
+      f"足さなかった行: {dict(skipped)}，壊れた書き方として除いた語: {dict(removed)}(載っていた辞書ごと {dict(removed_by_source)})，"
+      f"基準の値: { {cid: round(value, 2) for cid, value in bases.items()} }", file=sys.stderr)

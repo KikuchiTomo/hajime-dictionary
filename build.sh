@@ -12,13 +12,15 @@ min_reading_length=4
 
 "$root/tools/fetch_sources.sh" "$work/sources"
 azookey="$work/sources/azookey/Dictionary"
+# 常用漢字の一覧(壊れた書き方を見分けるのに使う．tools/brokenwords.py)
+unihan="$work/sources/unihan/Unihan-16.0.0.zip"
 python3 -I "$root/tools/dump_azookey.py" "$azookey" "$work/azookey.tsv"
 python3 -I "$root/tools/merge_mozc.py" "$work/azookey.tsv" "$work/sources/mozc" "$work/sources/ipadic/left-id.def" "$work/merged.tsv" \
-  --min-reading-length "$min_reading_length"
+  --min-reading-length "$min_reading_length" --unihan "$unihan"
 python3 -I "$root/tools/add_loanwords.py" "$work/merged.tsv" "$root/sources/wikidata-loanwords.tsv" "$work/sources/ipadic/left-id.def" "$work/loanwords.tsv"
-python3 -I "$root/tools/add_ut.py" "$work/loanwords.tsv" "$work/sources/ut" "$work/sources/ipadic/left-id.def" "$work/ut.tsv"
-python3 -I "$root/tools/add_neologd.py" "$work/ut.tsv" "$work/sources/neologd" "$work/sources/ipadic/left-id.def" "$work/neologd.tsv"
-python3 -I "$root/tools/add_sudachi.py" "$work/neologd.tsv" "$work/sources/sudachidict" "$work/sources/ipadic/left-id.def" "$work/sudachi.tsv"
+python3 -I "$root/tools/add_ut.py" "$work/loanwords.tsv" "$work/sources/ut" "$work/sources/ipadic/left-id.def" "$unihan" "$work/ut.tsv"
+python3 -I "$root/tools/add_neologd.py" "$work/ut.tsv" "$work/sources/neologd" "$work/sources/ipadic/left-id.def" "$unihan" "$work/neologd.tsv"
+python3 -I "$root/tools/add_sudachi.py" "$work/neologd.tsv" "$work/sources/sudachidict" "$work/sources/ipadic/left-id.def" "$unihan" "$work/sudachi.tsv"
 python3 -I "$root/tools/demote_sokuon_variants.py" "$work/sudachi.tsv" "$work/worddict.tsv"
 # 専門用語の辞書(通常の辞書に無い分野の語．Hajime IME が設定で分野ごとに使う)
 python3 -I "$root/tools/build_terms.py" "$work/worddict.tsv" "$work/sources/jmdict/jmdict-eng.json.tgz" "$root/sources/wikidata-terms.tsv" "$work/terms.tsv"
