@@ -20,12 +20,14 @@ v0.4.0 から，CC BY-SA 4.0 のデータ(Wikipedia の見出しと EDICT2 の�
 | [mozcdic-ut-edict2](https://github.com/utuhiro78/mozcdic-ut-edict2)(コミット 8fe8f79) | 名詞の語(読みと表記)．[EDICT2](https://www.edrdg.org/jmdict/edict.html)(Electronic Dictionary Research and Development Group)から作られたもの | CC BY-SA 4.0(EDRDG の条件) | LICENSES/CC-BY-SA-4.0.txt，https://www.edrdg.org/edrdg/licence.html |
 | [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)(Electronic Dictionary Research and Development Group)．[jmdict-simplified](https://github.com/scriptin/jmdict-simplified) の 3.6.2+20261109214828 の JSON | 専門用語の辞書(terms.tsv)の語(読みと表記)．分野の印の付いた名詞の語義の語 | CC BY-SA 4.0(EDRDG の条件) | LICENSES/CC-BY-SA-4.0.txt，https://www.edrdg.org/edrdg/licence.html |
 | [Wikidata](https://www.wikidata.org/)(sources/wikidata-terms.tsv の取得日) | 専門用語の辞書(terms.tsv)の語(分野ごとのクラスの項目の日本語の名前と名前の読み) | CC0 1.0(パブリックドメイン) | https://creativecommons.org/publicdomain/zero/1.0/ |
+| [Unicode の Unihan データベース](https://www.unicode.org/charts/unihan.html)(16.0.0) | 常用漢字の印(kJoyoKanji)．壊れた書き方の語を見分けるのに使うだけで，辞書には入れない(v0.5.1 から) | Unicode License v3 | https://www.unicode.org/license.txt |
 
 Mozc の語は，品詞の番号を IPAdic の番号に引き直し，コストを azooKey の値の尺度に換算して足しています．元のデータの語そのものは変えていません．
 Wikidata の名前は，カタカナの読みと英字の綴りの組として足しています(tools/fetch_wikidata.py と tools/add_loanwords.py)．
 Mozc UT 辞書(作者: UTUMI Hirosi)の語は，読みと表記の組だけを使い，品詞とコストはこの辞書で決めて足しています(tools/add_ut.py)．一部の語は除いています．
 NEologd と SudachiDict の元のデータの語は，品詞を IPAdic の番号で表し，コストを azooKey の値に換算して足しています(tools/add_neologd.py・tools/add_sudachi.py)．一部の語は除いています．
 JMdict と Wikidata の語は，通常の辞書とは別の専門用語の辞書(terms.tsv)に，読み・表記・品詞・分野の組として入れています(tools/build_terms.py)．一部の語は除いています．
+v0.5.1 から，azooKey・Mozc・Mozc UT 辞書・NEologd・SudachiDict の語のうち，変換の候補を乱す壊れた書き方(交ぜ書き・読みのかなだけの語・文節の切れ端・NEologd の表記の揺れ)を除いています(tools/brokenwords.py)．
 
 ## NO WARRANTY(ICOT Free Software の条件より)
 

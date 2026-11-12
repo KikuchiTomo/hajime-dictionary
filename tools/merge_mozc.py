@@ -1,9 +1,10 @@
 """azooKey の辞書に，Mozc の辞書(dictionary_oss)にしかない語を足した worddict を作る．
 
 使い方:
-    python3 -I tools/merge_mozc.py <azooKey の TSV> <Mozc の dictionary_oss> <IPAdic の left-id.def> <出力.tsv> [--penalty P]
+    python3 -I tools/merge_mozc.py <azooKey の TSV> <Mozc の dictionary_oss> <IPAdic の left-id.def> <出力.tsv> --unihan <Unihan.zip> [--penalty P]
 
-- azooKey の TSV は tools/dump_azookey.py で書き出したもの．azooKey の語はすべて残す
+- azooKey の TSV は tools/dump_azookey.py で書き出したもの．azooKey の語は，文節の切れ端(促音で始まるカタカナの名詞「ッ」，
+  かなで書いた数詞の「はっ」．tools/brokenwords.py の azookey_fragment)のほかはすべて残す
 - Mozc の語は「読み・語」の組が azooKey に無いものだけを足す
 - 品詞: azooKey の cid は IPAdic(mecab-ipadic 2.7.0)の left-id と同じ番号．Mozc の id.def は独自の番号だが品詞の文字列は IPAdic 由来なので，
   文字列で IPAdic の番号に引き直す．7 列目(語彙)まで一致 → 7 列目を * にして一致 → 6 列目まで一致する最初のもの，の順に探し，
@@ -13,6 +14,8 @@
   最後に --penalty を引く(Mozc だけの語はまれな語が多いので，既存の語より少し下げて試せるように)
 - --min-reading-length より読みの短い Mozc だけの語は足さない
 - 読みの表記ゆれを直すための行(6 列目が SPELLING_CORRECTION)は，わざと誤った読みなので足さない
+- 壊れた書き方(促音で切った交ぜ書きの「はっ声」，読みのかなだけの「ハッセイ」など)は足さない(tools/brokenwords.py)．
+  常用漢字は --unihan の Unihan データベースから読む
 """
 import argparse
 import bisect
@@ -20,6 +23,10 @@ import collections
 import pathlib
 import statistics
 import sys
+
+# 同じディレクトリの brokenwords.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from brokenwords import SameReadingWords, azookey_fragment, broken, load_joyo  # noqa: E402
 
 BUCKET = 500
 # 中央値を信じるのに要る語の数
@@ -37,6 +44,7 @@ parser.add_argument("azookey")
 parser.add_argument("mozc")
 parser.add_argument("ipadic")
 parser.add_argument("destination")
+parser.add_argument("--unihan", required=True)
 parser.add_argument("--penalty", type=float, default=0.0)
 parser.add_argument("--min-reading-length", type=int, default=1)
 arguments = parser.parse_args()
@@ -79,13 +87,22 @@ for feature, number in ipadic.items():
 # ひらがな(ぁ〜ゖ)をカタカナにする．azooKey の読みはカタカナ
 HIRAGANA_TO_KATAKANA = {code: code + 0x60 for code in range(0x3041, 0x3097)}
 
+feature_of_cid = {number: feature for feature, number in ipadic.items()}
 azookey = collections.defaultdict(list)
 azookey_lines = []
+removed_from_azookey = collections.Counter()
+same_reading = SameReadingWords()
 with open(arguments.azookey, encoding="utf-8") as file:
     for line in file:
         ruby, word, lcid, rcid, _, score = line.rstrip("\n").split("\t")
         azookey[(ruby, word)].append((int(lcid), int(rcid), float(score)))
+        reason = azookey_fragment(ruby, word, feature_of_cid.get(int(lcid), ""))
+        if reason:
+            removed_from_azookey[reason] += 1
+            continue
         azookey_lines.append(line)
+        same_reading.add(ruby, word, float(score), feature_of_cid.get(int(lcid), ""))
+joyo = load_joyo(arguments.unihan)
 
 skipped = collections.Counter()
 mozc = []
@@ -125,6 +142,7 @@ def convert(cost):
 
 
 added = {}
+removed = collections.defaultdict(set)
 for ruby, word, lcid, rcid, cost in mozc:
     if (ruby, word) in azookey:
         continue
@@ -133,6 +151,11 @@ for ruby, word, lcid, rcid, cost in mozc:
         continue
     key = (ruby, word, lcid, rcid)
     score = convert(cost) - arguments.penalty
+    feature = feature_of_cid.get(lcid, "")
+    reason = broken(ruby, word, score, same_reading, joyo, noun=feature.startswith("名詞"), name=feature.startswith("名詞,固有名詞,人名"))
+    if reason:
+        removed[reason].add(key)
+        continue
     # Mozc の中で同じ語・品詞が重なっていれば，ありふれたほう(値の大きいほう)を残す
     if key not in added or added[key] < score:
         added[key] = score
@@ -142,5 +165,6 @@ with open(arguments.destination, "w", encoding="utf-8") as output:
     for (ruby, word, lcid, rcid), score in added.items():
         output.write(f"{ruby}\t{word}\t{lcid}\t{rcid}\t{mid_of_cid.get(lcid, MID_GENERAL)}\t{score:.4f}\n")
 
-print(f"azooKey: {len(azookey_lines)} 語，Mozc から足した語: {len(added)}，足さなかった行: {dict(skipped)}", file=sys.stderr)
+print(f"azooKey: {len(azookey_lines)} 語(文節の切れ端として除いた語: {dict(removed_from_azookey)})，Mozc から足した語: {len(added)}，足さなかった行: {dict(skipped)}，"
+      f"壊れた書き方として除いた語: { {reason: len(keys - added.keys()) for reason, keys in removed.items()} }", file=sys.stderr)
 print("コストの対応(Mozc のコスト → azooKey の値): " + ", ".join(f"{int(x)}→{y:.2f}" for x, y in points), file=sys.stderr)

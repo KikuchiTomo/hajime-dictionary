@@ -7,7 +7,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from fixtures import read_worddict, readings, write_ipadic, write_worddict  # noqa: E402
+from fixtures import read_worddict, readings, write_ipadic, write_unihan, write_worddict  # noqa: E402
 
 TOOL = pathlib.Path(__file__).resolve().parents[1] / "tools" / "add_sudachi.py"
 HEADER = "IndexForm,LeftId,RightId,Cost,Headword,POS1,POS2,POS3,POS4,POS5,POS6,ReadingForm,NormalizedForm\n"
@@ -26,9 +26,10 @@ class AddSudachiTests(unittest.TestCase):
                 with zipfile.ZipFile(root / "sudachi" / f"{name}.zip", "w") as archive:
                     archive.writestr(f"{name}.csv", HEADER + "".join(lexicon if index == 0 else []))
             write_ipadic(root / "left-id.def")
+            write_unihan(root / "Unihan.zip")
             write_worddict(root / "worddict.tsv", worddict)
             result = subprocess.run([sys.executable, "-I", str(TOOL), str(root / "worddict.tsv"), str(root / "sudachi"),
-                                     str(root / "left-id.def"), str(root / "out.tsv")], capture_output=True, text=True)
+                                     str(root / "left-id.def"), str(root / "Unihan.zip"), str(root / "out.tsv")], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             return read_worddict(root / "out.tsv"), (root / "out.tsv").read_text(encoding="utf-8")
 

@@ -35,3 +35,5 @@ sudachidict/core_lex.zip e9ac06222f0ce401a0fef9b129e61e93d59e3ff395a1b037f498962
 sudachidict/notcore_lex.zip 16072d75abe6a048947aacbcecfe1ab65a200965a9f1ddb7ceab366348fa21f2 http://sudachi.s3-website-ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20261015/notcore_lex.zip
 # JMdict(EDRDG．CC BY-SA 4.0)の JSON(jmdict-simplified 3.6.2+20261109214828)．tools/build_terms.py が分野の印の付いた語を専門用語の辞書に入れる(v0.5.0 から)
 jmdict/jmdict-eng.json.tgz acf4beb64e7a0bb8f44b3aae9bf2b81cb0ecde462fb3679264ef66e92f25c04a https://github.com/scriptin/jmdict-simplified/releases/download/3.6.2%2B20261109214828/jmdict-eng-3.6.2%2B20261109214828.json.tgz
+# Unicode の Unihan データベース(16.0.0)．常用漢字の印(kJoyoKanji)だけを，壊れた書き方を見分けるのに使う(tools/brokenwords.py．v0.5.1 から)．辞書には入れない
+unihan/Unihan-16.0.0.zip b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0 https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip
