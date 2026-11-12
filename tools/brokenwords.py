@@ -18,6 +18,8 @@ azooKey の辞書の語は，次の文節の切れ端だけを除く(azookey_fra
 - 読みが促音で始まる，カタカナだけの名詞(ッ・ック・ット)
 - 読みが促音で終わる 2 文字の，カタカナだけの名詞(イッ・セッ・ガッ)
 - 読みが促音で終わる，かなで書いた数詞(はっ・いっ・じっ)
+- 促音で切った交ぜ書きの名詞(てっ底・やっ介・まっ赤・ひっ算)．同じ読みの漢字だけの名詞(徹底・厄介)が azooKey の辞書にあるもの．
+  新聞の交ぜ書きとして定着した語(うっ血・ぼっ発・かっ色・しっ責 など．NEWSPAPER_MIXED_SPELLINGS)は残す
 """
 import re
 import zipfile
@@ -109,6 +111,18 @@ def azookey_fragment(reading, word, feature):
     if feature.startswith("名詞,数") and reading.endswith(SOKUON) and all(is_kana(c) for c in word):
         return "かなで書いた数詞の促音の読み"
     return None
+
+
+# azooKey の辞書の促音で切った交ぜ書きの名詞のうち，残すもの．常用漢字になる前の表外字(鬱・勃・褐・叱・闊・抹)をかなにした，
+# 新聞や公用文で使われてきた書き方
+NEWSPAPER_MIXED_SPELLINGS = {"うっ屈", "うっ血", "うっ積", "うっ憤", "うっ滞", "かっ歩", "かっ色", "しっ責", "ぼっ発", "まっ消"}
+
+
+def azookey_mixed_spelling(reading, word, feature, azookey_words, joyo):
+    """azooKey の辞書の語のうち，除く促音で切った交ぜ書きの名詞か．azookey_words は azooKey の辞書の語(SameReadingWords)"""
+    if not feature.startswith("名詞") or feature.startswith("名詞,固有名詞,人名") or word in NEWSPAPER_MIXED_SPELLINGS:
+        return None
+    return "促音で切った交ぜ書きの名詞" if split_by_sokuon(reading, word, azookey_words, joyo) else None
 
 
 def broken(reading, word, value, same_reading, joyo, noun=True, name=False):

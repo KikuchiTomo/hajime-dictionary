@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from brokenwords import SameReadingWords, azookey_fragment, broken, load_joyo  # noqa: E402
+from brokenwords import SameReadingWords, azookey_fragment, azookey_mixed_spelling, broken, load_joyo  # noqa: E402
 from fixtures import write_unihan  # noqa: E402
 
 
@@ -76,6 +76,30 @@ class AzooKeyFragmentTests(unittest.TestCase):
         self.assertIsNone(azookey_fragment("ッ", "っ", "動詞,非自立,*,*,五段・ラ行,連用タ接続,*"))
         self.assertIsNone(azookey_fragment("ハッ", "ハッ", "副詞,助詞類接続,*,*,*,*,*"))
         self.assertIsNone(azookey_fragment("イラッ", "イラッ", "名詞,一般,*,*,*,*,*"))
+
+
+class AzooKeyMixedSpellingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "Unihan.zip"
+            write_unihan(path, joyo="発声生制圧滞注引越素徹底厄介血鬱勃")
+            cls.joyo = load_joyo(path)
+        cls.words = SameReadingWords()
+        for reading, word in [("テッテイ", "徹底"), ("ヤッカイ", "厄介"), ("ウッケツ", "鬱血"), ("ボッパツ", "勃発")]:
+            cls.words.add(reading, word, -10.0, "名詞,一般,*,*,*,*,*")
+
+    def check(self, reading, word):
+        return azookey_mixed_spelling(reading, word, "名詞,一般,*,*,*,*,*", self.words, self.joyo)
+
+    def test_removes_mixed_spellings_of_joyo_kanji(self):
+        self.assertEqual(self.check("テッテイ", "てっ底"), "促音で切った交ぜ書きの名詞")
+        self.assertEqual(self.check("ヤッカイ", "やっ介"), "促音で切った交ぜ書きの名詞")
+
+    def test_keeps_newspaper_mixed_spellings(self):
+        # 鬱・勃 を常用漢字に含めても，新聞の交ぜ書きとして残す
+        self.assertIsNone(self.check("ウッケツ", "うっ血"))
+        self.assertIsNone(self.check("ボッパツ", "ぼっ発"))
 
 
 if __name__ == "__main__":
