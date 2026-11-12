@@ -6,7 +6,9 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from brokenwords import SameReadingWords, azookey_fragment, azookey_mixed_spelling, broken, load_joyo  # noqa: E402
+from brokenwords import (  # noqa: E402
+    OkuriganaNouns, SameReadingWords, dropped_okurigana, azookey_fragment, azookey_mixed_spelling, broken, load_joyo,
+)
 from fixtures import write_unihan  # noqa: E402
 
 
@@ -100,6 +102,45 @@ class AzooKeyMixedSpellingTests(unittest.TestCase):
         # 鬱・勃 を常用漢字に含めても，新聞の交ぜ書きとして残す
         self.assertIsNone(self.check("ウッケツ", "うっ血"))
         self.assertIsNone(self.check("ボッパツ", "ぼっ発"))
+
+
+class AzooKeyDroppedOkuriganaTests(unittest.TestCase):
+    NOUN = "名詞,一般,*,*,*,*,*"
+    VERB = "動詞,自立,*,*,五段・タ行,連用形,*"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.words = OkuriganaNouns()
+        NOUN, VERB = cls.NOUN, cls.VERB
+        # azooKey の辞書の値に近い組(待ち・書き は送りがなを付けた名詞のほうがよく使われる．光り・組み は まれ)
+        for reading, word, value, feature in [
+            ("マチ", "待ち", -8.94, "名詞,接尾,一般,*,*,*,*"), ("マチ", "待ち", -5.50, VERB), ("カキ", "書き", -9.75, "名詞,接尾,一般,*,*,*,*"),
+            ("カキ", "書き", -4.76, VERB), ("ヒカリ", "光り", -18.67, NOUN), ("ヒカリ", "光り", -9.0, VERB), ("クミ", "組み", -11.60, NOUN),
+            ("クミ", "組み", -8.0, VERB), ("オビ", "帯び", -9.0, VERB), ("ズミ", "済み", -8.33, "名詞,接尾,一般,*,*,*,*"), ("ズミ", "済み", -7.0, VERB),
+            ("カンガエ", "考え", -8.71, NOUN), ("カンガエ", "考え", -6.0, "動詞,自立,*,*,一段,連用形,*"),
+        ]:
+            cls.words.add(reading, word, value, feature)
+
+    def check(self, reading, word, value, feature=None):
+        return dropped_okurigana(reading, word, value, feature or self.NOUN, self.words)
+
+    def test_removes_single_kanji_nouns_without_usual_okurigana(self):
+        self.assertEqual(self.check("マチ", "待", -12.22), "送りがなを落とした 1 字の名詞")
+        self.assertEqual(self.check("カキ", "書", -12.19), "送りがなを落とした 1 字の名詞")
+        self.assertEqual(self.check("カンガエ", "考", -17.26), "送りがなを落とした 1 字の名詞")
+
+    def test_keeps_nouns_written_without_okurigana(self):
+        # 送り仮名の付け方の通則 2 の例外(光・組・帯)，送りがなを付けた名詞がまれなもの，送りがなを付けた名詞が無いもの
+        self.assertIsNone(self.check("ヒカリ", "光", -8.91))
+        self.assertIsNone(self.check("クミ", "組", -11.69))
+        self.assertIsNone(self.check("オビ", "帯", -10.0))
+        self.assertIsNone(self.check("マチ", "待", -9.5))
+
+    def test_keeps_compound_readings_suffixes_and_other_parts_of_speech(self):
+        # 濁った頭の読み(確認済)，接尾・助数詞の品詞，連用形でない読み
+        self.assertIsNone(self.check("ズミ", "済", -13.32))
+        self.assertIsNone(self.check("カキ", "書", -16.23, "名詞,接尾,一般,*,*,*,*"))
+        self.assertIsNone(self.check("マツ", "待", -20.0))
 
 
 if __name__ == "__main__":

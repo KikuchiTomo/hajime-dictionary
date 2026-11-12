@@ -5,7 +5,10 @@
 
 - azooKey の TSV は tools/dump_azookey.py で書き出したもの．azooKey の語は，文節の切れ端(促音で始まるカタカナの名詞「ッ」，
   かなで書いた数詞の「はっ」．tools/brokenwords.py の azookey_fragment)と，促音で切った交ぜ書きの名詞(てっ底・やっ介．
-  新聞の交ぜ書きの うっ血・ぼっ発 などは残す．azookey_mixed_spelling)のほかはすべて残す
+  新聞の交ぜ書きの うっ血・ぼっ発 などは残す．azookey_mixed_spelling)と，送りがなを落とした 1 字の一般名詞(待 まち・書 かき．
+  dropped_okurigana)のほかはすべて残す
+- 助数詞の音の変わる読み(匹 ピキ・ビキ)を，元の読みの助数詞の語の意味の ID で足す(--counter-readings．sources/counter-readings.tsv)．
+  値は元の読みの値から，azooKey の辞書の助数詞の音の変わる読みの値の差の中央値(半濁音・濁音ごと)を引く
 - Mozc の語は「読み・語」の組が azooKey に無いものだけを足す
 - 品詞: azooKey の cid は IPAdic(mecab-ipadic 2.7.0)の left-id と同じ番号．Mozc の id.def は独自の番号だが品詞の文字列は IPAdic 由来なので，
   文字列で IPAdic の番号に引き直す．7 列目(語彙)まで一致 → 7 列目を * にして一致 → 6 列目まで一致する最初のもの，の順に探し，
@@ -27,13 +30,17 @@ import sys
 
 # 同じディレクトリの brokenwords.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from brokenwords import SameReadingWords, azookey_fragment, azookey_mixed_spelling, broken, load_joyo  # noqa: E402
+from brokenwords import (  # noqa: E402
+    OkuriganaNouns, SameReadingWords, dropped_okurigana, azookey_fragment, azookey_mixed_spelling, broken, load_joyo,
+)
 
 BUCKET = 500
 # 中央値を信じるのに要る語の数
 MINIMUM_SAMPLES = 50
 # 意味の ID(mid)．azooKey の MIDData に合わせる．品詞から決まらない語は「一般」
 MID_GENERAL = 501
+# 助数詞の品詞(IPAdic の 名詞,接尾,助数詞)
+COUNTER_CID = 1300
 MID_BY_FEATURE = {
     "名詞,固有名詞,人名,姓": 344,
     "名詞,固有名詞,人名,名": 370,
@@ -48,6 +55,7 @@ parser.add_argument("destination")
 parser.add_argument("--unihan", required=True)
 parser.add_argument("--penalty", type=float, default=0.0)
 parser.add_argument("--min-reading-length", type=int, default=1)
+parser.add_argument("--counter-readings")
 arguments = parser.parse_args()
 
 
@@ -99,19 +107,66 @@ with open(arguments.azookey, encoding="utf-8") as file:
         rows.append((line, ruby, word, int(lcid), float(score)))
 # azooKey の語の促音で切った交ぜ書きは，azooKey の語(漢字だけの名詞)と比べて見分ける
 azookey_words = SameReadingWords()
+okurigana = OkuriganaNouns()
 for _, ruby, word, lcid, score in rows:
     azookey_words.add(ruby, word, score, feature_of_cid.get(lcid, ""))
+    okurigana.add(ruby, word, score, feature_of_cid.get(lcid, ""))
 azookey_lines = []
 removed_from_azookey = collections.Counter()
 same_reading = SameReadingWords()
 for line, ruby, word, lcid, score in rows:
     feature = feature_of_cid.get(lcid, "")
-    reason = azookey_fragment(ruby, word, feature) or azookey_mixed_spelling(ruby, word, feature, azookey_words, joyo)
+    reason = (azookey_fragment(ruby, word, feature) or azookey_mixed_spelling(ruby, word, feature, azookey_words, joyo)
+              or dropped_okurigana(ruby, word, score, feature, okurigana))
     if reason:
         removed_from_azookey[reason] += 1
         continue
     azookey_lines.append(line)
     same_reading.add(ruby, word, score, feature)
+
+# 助数詞の音の変わる読み．元の読みの助数詞の語(無ければ元の読みでいちばんよく使う語)の意味の ID で，助数詞の品詞で足す．
+# 値は元の読みの値から，azooKey の辞書の助数詞の音の変わる読み(杯 の ハイ と パイ・バイ)の値の差の中央値を引く．
+# 元の読みと同じ値にすると，同じ読みの別の助数詞(よんぱい の 四杯)より先に出る
+HANDAKUON = dict(zip("ハヒフヘホ", "パピプペポ"))
+DAKUON = dict(zip("カキクケコサシスセソタチツテトハヒフヘホ", "ガギグゲゴザジズゼゾダヂヅデドバビブベボ"))
+
+
+def sound_change(base, reading):
+    """元の読みから足す読みへの音の変わり方(半濁音・濁音)．同じ読みなら None"""
+    if base == reading or base[1:] != reading[1:]:
+        return None
+    return "半濁音" if HANDAKUON.get(base[0]) == reading[0] else "濁音" if DAKUON.get(base[0]) == reading[0] else None
+
+
+counter_values = {}
+for _, ruby, word, lcid, score in rows:
+    if lcid == COUNTER_CID:
+        counter_values[(ruby, word)] = max(score, counter_values.get((ruby, word), score))
+gaps = collections.defaultdict(list)
+for (ruby, word), score in counter_values.items():
+    for changed in {HANDAKUON.get(ruby[0]), DAKUON.get(ruby[0])} - {None}:
+        if (changed + ruby[1:], word) in counter_values:
+            gaps[sound_change(ruby, changed + ruby[1:])].append(score - counter_values[(changed + ruby[1:], word)])
+sound_change_gaps = {kind: statistics.median(values) for kind, values in gaps.items()}
+
+counter_lines = []
+if arguments.counter_readings:
+    entries = collections.defaultdict(list)
+    for line, ruby, word, lcid, score in rows:
+        entries[(ruby, word)].append((lcid != COUNTER_CID, -score, line.split("\t")[4]))
+    for line in pathlib.Path(arguments.counter_readings).read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        word, base, reading = line.split("\t")
+        if not entries.get((base, word)):
+            sys.exit(f"助数詞の元の読みの語がありません: {word} {base}")
+        # 助数詞の品詞ですでにある読みは足さない
+        if any(lcid == COUNTER_CID for lcid, _, _ in azookey.get((reading, word), [])):
+            continue
+        # 助数詞の品詞の語を先に，同じ品詞なら値の大きい語を選ぶ
+        _, negative, mid = min(entries[(base, word)])
+        value = -negative - sound_change_gaps.get(sound_change(base, reading), 0.0)
+        counter_lines.append(f"{reading}\t{word}\t{COUNTER_CID}\t{COUNTER_CID}\t{mid}\t{value:.4f}\n")
 
 skipped = collections.Counter()
 mozc = []
@@ -171,9 +226,12 @@ for ruby, word, lcid, rcid, cost in mozc:
 
 with open(arguments.destination, "w", encoding="utf-8") as output:
     output.writelines(azookey_lines)
+    output.writelines(counter_lines)
     for (ruby, word, lcid, rcid), score in added.items():
         output.write(f"{ruby}\t{word}\t{lcid}\t{rcid}\t{mid_of_cid.get(lcid, MID_GENERAL)}\t{score:.4f}\n")
 
-print(f"azooKey: {len(azookey_lines)} 語(文節の切れ端として除いた語: {dict(removed_from_azookey)})，Mozc から足した語: {len(added)}，足さなかった行: {dict(skipped)}，"
+print(f"azooKey: {len(azookey_lines)} 語(除いた語: {dict(removed_from_azookey)})，助数詞の読みを足した語: {len(counter_lines)}，"
+      f"Mozc から足した語: {len(added)}，足さなかった行: {dict(skipped)}，"
       f"壊れた書き方として除いた語: { {reason: len(keys - added.keys()) for reason, keys in removed.items()} }", file=sys.stderr)
+print("助数詞の音の変わる読みの値の差(中央値): " + ", ".join(f"{kind} {gap:.2f}" for kind, gap in sorted(sound_change_gaps.items())), file=sys.stderr)
 print("コストの対応(Mozc のコスト → azooKey の値): " + ", ".join(f"{int(x)}→{y:.2f}" for x, y in points), file=sys.stderr)

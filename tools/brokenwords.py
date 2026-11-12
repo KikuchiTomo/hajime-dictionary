@@ -20,7 +20,12 @@ azooKey の辞書の語は，次の文節の切れ端だけを除く(azookey_fra
 - 読みが促音で終わる，かなで書いた数詞(はっ・いっ・じっ)
 - 促音で切った交ぜ書きの名詞(てっ底・やっ介・まっ赤・ひっ算)．同じ読みの漢字だけの名詞(徹底・厄介)が azooKey の辞書にあるもの．
   新聞の交ぜ書きとして定着した語(うっ血・ぼっ発・かっ色・しっ責 など．NEWSPAPER_MIXED_SPELLINGS)は残す
+- 送りがなを落とした 1 字の一般名詞(待 まち・書 かき・考 かんがえ・驚 おどろき)．同じ字の動詞の連用形と読みが同じで，送りがなを付けた
+  名詞(待ち・書き)のほうが OKURIGANA_MARGIN 以上よく使われるもの(dropped_okurigana)．SudachiDict から足す語にも当てる(足し直さないため)．Zenzai が 1 語の「まち」を「待」にする．
+  「送り仮名の付け方」(1973)の通則 2 の例外で送りがなを付けない名詞(光・隣・氷・恋・組・帯・畳．NO_OKURIGANA_NOUNS)と，
+  複合語の頭以外に付く読み(濁る読み「ズミ」「ガキ」)と，接尾・助数詞の品詞の語(確認済・但し書 に使う)は残す
 """
+import collections
 import re
 import zipfile
 
@@ -116,6 +121,43 @@ def azookey_fragment(reading, word, feature):
 # azooKey の辞書の促音で切った交ぜ書きの名詞のうち，残すもの．常用漢字になる前の表外字(鬱・勃・褐・叱・闊・抹)をかなにした，
 # 新聞や公用文で使われてきた書き方
 NEWSPAPER_MIXED_SPELLINGS = {"うっ屈", "うっ血", "うっ積", "うっ憤", "うっ滞", "かっ歩", "かっ色", "しっ責", "ぼっ発", "まっ消"}
+
+
+# 「送り仮名の付け方」(1973)の通則 2 の例外: 活用のある語から転じた名詞で，送りがなを付けない語
+NO_OKURIGANA_NOUNS = set("謡虞趣氷印頂帯畳卸煙恋志次隣富恥話光舞折係掛組肥並巻割")
+# 送りがなを落とした名詞を見分けるのに要る，送りがなを付けた名詞との値(対数の確率に近い)の差
+OKURIGANA_MARGIN = 2.0
+# 動詞の連用形の読みの終わり(イ段・エ段)
+CONTINUATIVE_ENDINGS = set("イキシチニヒミリギジヂビピィエケセテネヘメレゲゼデベペェ")
+# 複合語の頭以外でだけ使う，濁った頭の読み(確認ズミ・但しガキ)
+VOICED_INITIALS = set("ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポ")
+
+
+class OkuriganaNouns:
+    """読みごとの名詞の値と，漢字に送りがなを付けた動詞の書き方．送りがなを落とした 1 字の名詞を見分けるのに使う"""
+
+    def __init__(self):
+        self.noun_values = {}
+        self.verb_spellings = collections.defaultdict(set)
+
+    def add(self, reading, word, value, feature):
+        """feature は IPAdic の品詞"""
+        if feature.startswith("名詞"):
+            key = (reading, word)
+            self.noun_values[key] = max(value, self.noun_values.get(key, value))
+        elif feature.startswith("動詞") and len(word) > 1 and is_kanji(word[0]) and all(0x3041 <= ord(c) <= 0x3096 for c in word[1:]):
+            self.verb_spellings[reading].add(word)
+
+
+def dropped_okurigana(reading, word, value, feature, okurigana):
+    """除く送りがなを落とした 1 字の一般名詞か．value はその語の値，okurigana は既存の語(OkuriganaNouns)"""
+    if (not feature.startswith("名詞,一般") or len(word) != 1 or not is_kanji(word) or word in NO_OKURIGANA_NOUNS
+            or reading[-1] not in CONTINUATIVE_ENDINGS or reading[0] in VOICED_INITIALS):
+        return None
+    for spelling in okurigana.verb_spellings.get(reading, ()):
+        if spelling[0] == word and okurigana.noun_values.get((reading, spelling), float("-inf")) >= value + OKURIGANA_MARGIN:
+            return "送りがなを落とした 1 字の名詞"
+    return None
 
 
 def azookey_mixed_spelling(reading, word, feature, azookey_words, joyo):

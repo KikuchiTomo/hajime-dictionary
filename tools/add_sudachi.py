@@ -8,7 +8,8 @@
 
 - 足すのは名詞だけ．品詞を NOUN_FEATURES で IPAdic の品詞に引き直す(動詞・形容詞は活用の型の対応が要るので足さない)
 - 足すのは「読み・表記」の組が worddict に無いものだけ．既存の語の値は変えない．除く語の決まりは tools/wordfilter.py と
-  tools/brokenwords.py(常用漢字は Unihan データベースから読む)
+  tools/brokenwords.py(常用漢字は Unihan データベースから読む)．送りがなを落とした 1 字の名詞(考 かんがえ)も，azooKey の辞書から
+  除いたものを足し直さないよう除く(dropped_okurigana)
 - 値: 両方の辞書にある同じ品詞の語で，SudachiDict のコストの区間ごとに azooKey の値の中央値を求め，そのあいだを線形に補う．
   PENALTY を引き，同じ読みの語が worddict にあれば，そのどれよりも SAME_READING_MARGIN 下げる(既存の候補の並びを変えないため)
 """
@@ -23,7 +24,7 @@ import zipfile
 
 # 同じディレクトリの wordfilter.py と brokenwords.py を読む(python3 -I ではスクリプトの場所が探す場所に入らないため)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from brokenwords import SameReadingWords, broken, load_joyo  # noqa: E402
+from brokenwords import OkuriganaNouns, SameReadingWords, broken, dropped_okurigana, load_joyo  # noqa: E402
 from wordfilter import problem  # noqa: E402
 
 BUCKET = 1000
@@ -63,6 +64,7 @@ lines = []
 existing = collections.defaultdict(list)
 lowest_by_reading = {}
 same_reading = SameReadingWords()
+okurigana = OkuriganaNouns()
 with open(worddict_path, encoding="utf-8") as file:
     for line in file:
         lines.append(line)
@@ -73,6 +75,7 @@ with open(worddict_path, encoding="utf-8") as file:
         existing[(ruby, word)].append((lcid, value))
         lowest_by_reading[ruby] = min(lowest_by_reading.get(ruby, value), value)
         same_reading.add(ruby, word, value, feature_of_cid.get(lcid, ""))
+        okurigana.add(ruby, word, value, feature_of_cid.get(lcid, ""))
 
 skipped = collections.Counter()
 rows = []
@@ -133,7 +136,8 @@ for reading, word, cid, cost in rows:
     if reading in lowest_by_reading and score > lowest_by_reading[reading] - SAME_READING_MARGIN:
         score = lowest_by_reading[reading] - SAME_READING_MARGIN
     key = (reading, word, cid)
-    reason = broken(reading, word, score, same_reading, joyo, name=cid in names)
+    reason = broken(reading, word, score, same_reading, joyo, name=cid in names) or dropped_okurigana(
+        reading, word, score, feature_of_cid.get(cid, ""), okurigana)
     if reason:
         removed[reason].add(key)
         continue
