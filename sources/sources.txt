@@ -33,3 +33,5 @@ neologd/neologd-proper-noun-ortho-variant-dict-seed.20161110.csv.xz 22e4abe473b9
 sudachidict/small_lex.zip 981b78cdc532ce058b34c76cd9acd3c9a6c771cc0ce528d7de92424b21172125 http://sudachi.s3-website-ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20261015/small_lex.zip
 sudachidict/core_lex.zip e9ac06222f0ce401a0fef9b129e61e93d59e3ff395a1b037f498962ee5b8ad8b http://sudachi.s3-website-ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20261015/core_lex.zip
 sudachidict/notcore_lex.zip 16072d75abe6a048947aacbcecfe1ab65a200965a9f1ddb7ceab366348fa21f2 http://sudachi.s3-website-ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20261015/notcore_lex.zip
+# JMdict(EDRDG．CC BY-SA 4.0)の JSON(jmdict-simplified 3.6.2+20261109214828)．tools/build_terms.py が分野の印の付いた語を専門用語の辞書に入れる(v0.5.0 から)
+jmdict/jmdict-eng.json.tgz acf4beb64e7a0bb8f44b3aae9bf2b81cb0ecde462fb3679264ef66e92f25c04a https://github.com/scriptin/jmdict-simplified/releases/download/3.6.2%2B20261109214828/jmdict-eng-3.6.2%2B20261109214828.json.tgz
