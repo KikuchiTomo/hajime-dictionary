@@ -1,6 +1,6 @@
 #!/bin/sh
 # 辞書を作り，配布物(dist/hajime-dictionary-<版>.tar.gz)にする．
-# 元のデータの取得と確認 → azooKey の辞書の書き出し → Mozc の語を足す → 外来語の英字の綴りを足す → Mozc UT 辞書の語を足す → NEologd と SudachiDict の元のデータの語を足す → 促音を落とした読みの揺れを下げる → LOUDS を作る → ライセンスの表示を添えて固める
+# 元のデータの取得と確認 → azooKey の辞書の書き出し → Mozc の語を足す → 外来語の英字の綴りを足す → Mozc UT 辞書の語を足す → NEologd と SudachiDict の元のデータの語を足す → 促音を落とした読みの揺れを下げる → LOUDS を作る → 専門用語の辞書を作る → ライセンスの表示を添えて固める
 #
 # 使い方: ./build.sh <版(例: 0.1.0)> [作業の置き場所(既定: work/)]
 set -eu
@@ -20,9 +20,12 @@ python3 -I "$root/tools/add_ut.py" "$work/loanwords.tsv" "$work/sources/ut" "$wo
 python3 -I "$root/tools/add_neologd.py" "$work/ut.tsv" "$work/sources/neologd" "$work/sources/ipadic/left-id.def" "$work/neologd.tsv"
 python3 -I "$root/tools/add_sudachi.py" "$work/neologd.tsv" "$work/sources/sudachidict" "$work/sources/ipadic/left-id.def" "$work/sudachi.tsv"
 python3 -I "$root/tools/demote_sokuon_variants.py" "$work/sudachi.tsv" "$work/worddict.tsv"
+# 専門用語の辞書(通常の辞書に無い分野の語．Hajime IME が設定で分野ごとに使う)
+python3 -I "$root/tools/build_terms.py" "$work/worddict.tsv" "$work/sources/jmdict/jmdict-eng.json.tgz" "$root/sources/wikidata-terms.tsv" "$work/terms.tsv"
 package="$work/package/hajime-dictionary-$version"
 rm -rf "$work/package"
 "$root/tools/assemble.sh" "$work/worddict.tsv" "$azookey" "$package/Dictionary"
+cp "$work/terms.tsv" "$package/Dictionary/terms.tsv"
 # 辞書のファイルごとの SHA-256 の一覧．使う側は一覧の SHA-256 を持っておき，一覧と各ファイルを確かめてから読む
 (cd "$package/Dictionary" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort | while read -r file; do shasum -a 256 "$file"; done > SHA256SUMS)
 cp -R "$root/LICENSES" "$root/NOTICE.md" "$package/"

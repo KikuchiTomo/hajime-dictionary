@@ -1,6 +1,6 @@
 # hajime-dictionary
 
-[Hajime IME](https://github.com/KikuchiTomo/Hajime) のかな漢字変換の辞書です．[azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書に，[Mozc](https://github.com/google/mozc) の辞書(dictionary_oss)にしかない語と，[Wikidata](https://www.wikidata.org/) から作った外来語の英字の綴り(「レッドハット」→ Red Hat，「にゅーらる」→ neural)を足し，さらに [Mozc UT 辞書](https://github.com/utuhiro78)(SudachiDict・NEologd・人名・地名・Wikipedia の見出し・EDICT2)と，NEologd・SudachiDict の元のデータの語を足しています．v0.4.0 から CC BY-SA 4.0 の語を含むので，辞書は CC BY-SA 4.0 の条件で配布します(「ライセンス」)．azooKey の辞書と同じ形(LOUDS)なので，azooKey のエンジンを使う IME から読めます．
+[Hajime IME](https://github.com/KikuchiTomo/Hajime) のかな漢字変換の辞書です．[azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書に，[Mozc](https://github.com/google/mozc) の辞書(dictionary_oss)にしかない語と，[Wikidata](https://www.wikidata.org/) から作った外来語の英字の綴り(「レッドハット」→ Red Hat，「にゅーらる」→ neural)を足し，さらに [Mozc UT 辞書](https://github.com/utuhiro78)(SudachiDict・NEologd・人名・地名・Wikipedia の見出し・EDICT2)と，NEologd・SudachiDict の元のデータの語を足しています．v0.5.0 から，分野ごとに使うかを選べる専門用語の辞書(`Dictionary/terms.tsv`．JMdict と Wikidata の語)も含めています．v0.4.0 から CC BY-SA 4.0 の語を含むので，辞書は CC BY-SA 4.0 の条件で配布します(「ライセンス」)．azooKey の辞書と同じ形(LOUDS)なので，azooKey のエンジンを使う IME から読めます．
 
 ## 入手
 
@@ -31,7 +31,7 @@ let converter = KanaKanjiConverter(dicdataStore: DicdataStore(dictionaryURL: dic
 ## 作り方
 
 ```sh
-./build.sh 0.4.0
+./build.sh 0.5.0
 ```
 
 Swift 6.1 以降と Python 3 が要ります．Python のスクリプトは標準ライブラリだけで動きます．
@@ -47,9 +47,10 @@ Swift 6.1 以降と Python 3 が要ります．Python のスクリプトは標�
 5. `tools/add_ut.py` が，Mozc UT 辞書の語を足します(下の「Mozc UT 辞書の語」)
 6. `tools/add_neologd.py` と `tools/add_sudachi.py` が，NEologd と SudachiDict の元のデータの語を足します(下の「NEologd と SudachiDict の元のデータの語」)
 7. `tools/demote_sokuon_variants.py` が，促音を落とした読みの揺れの値を下げます(下の「促音を落とした読みの揺れ」)
-8. `tools/assemble.sh` が，fork の `DictionaryBuilder` で LOUDS を作ります．接続のコスト・予測・意味の接続は azooKey の辞書のものをそのまま使います
+8. `tools/build_terms.py` が，専門用語の辞書(`terms.tsv`)を作ります(下の「専門用語の辞書」)
+9. `tools/assemble.sh` が，fork の `DictionaryBuilder` で LOUDS を作ります．接続のコスト・予測・意味の接続は azooKey の辞書のものをそのまま使います
 
-語を足す道具のテストは `python3 -m unittest discover -s tests` で動きます(除く語の決まり・揺れの読み・NEologd と SudachiDict の語の足し方)．
+語を足す道具のテストは `python3 -m unittest discover -s tests` で動きます(除く語の決まり・揺れの読み・NEologd と SudachiDict の語の足し方・専門用語の辞書の作り方)．
 
 ## 外来語の英字の綴り
 
@@ -91,6 +92,17 @@ azooKey と Mozc の辞書には，促音を落として打ったときのため
 - 同じ表記に，読み R と，R に「ッ」を 1 つ足した読み R' があり，R' のほうがよく使われる(値が大きい)とき，R を揺れとみなして値を 5 下げます．語は消さないので，候補から選べ，Zenzai が文脈から選ぶこともできます(「けしてゆるさない」は「決して許さない」)
 - 下げた語と同じ読み・同じ品詞で，表記が読みのかなそのものの語(決して に対する副詞の「けして」)も一緒に下げます
 - R のほうがよく使われる組(欲し の「ほし」と「ほっし」)は変えません．かなの表記の語どうし(バタ と バッタ)は別の語のことが多いので，組にしません
+
+## 専門用語の辞書
+
+`Dictionary/terms.tsv` は，通常の辞書に無い専門用語を分野ごとに並べたものです(v0.5.0 から)．Hajime IME は，設定で選んだ分野の語だけを候補に足します．通常の辞書(LOUDS)とは別のファイルなので，分野を切っても通常の辞書の語は残ります．
+
+- 1 行は「読み<TAB>語<TAB>品詞<TAB>分野<TAB>重なり」です．読みはひらがな，品詞は noun か properNoun，分野は `tools/term_fields.py` の id です．行全体の UTF-8 のバイト順に並べます(読みで二分探索するため)
+- 重なりは，読みが通常の辞書の語とどう重なるかです．0 は重ならない，1 は同じ読みの語がある(「しかん」の 士官)，2 は通常の辞書の 2 つの語の読みに分けられる(「たたいた」は「たたい」と「た」)．Hajime IME は重なる語の点数を下げ，ふだんの語を押しのけたり，語の切れ目をまたいで入り込んだりしないようにします
+- 分野は 24 個です(`tools/term_fields.py`)．JMdict の分野の印(96 種)をすべてどれかの分野に割り当て，Wikidata は分野ごとのクラス(病気・医薬品・化合物・定理・鉱物・建築要素・法的概念・プログラミング言語など)の項目と，2 段までの下位のクラスを使います
+- JMdict(`sources/sources.txt` で jmdict-simplified の版を固定)からは，分野の印の付いた名詞の語義の語を入れます．古語・廃語の語義と，まれ・古い・探すときだけの表記は除きます．全角の英数字は半角にします
+- Wikidata からは，日本語のラベルと名前の読み(P1814)を使います．ラベルがカタカナだけならラベルを読みにします．問い合わせの結果は `sources/wikidata-terms.tsv` にコミットし，辞書を作るときはこのファイルだけを使います(作り直しは `tools/fetch_wikidata_terms.py sources/wikidata-terms.tsv --raw work/wikidata-terms-raw.json`)
+- 通常の辞書に同じ読みと語があるもの，同じ読みで書き方の似た語があるもの(「寄り切り」に対する「寄りきり」，「あいまい検索」に対する「曖昧検索」)，読みが 3 文字より短いもの，語がカタカナだけのもの(カタカナへの変換で候補に出る)は入れません．書き方の違いとカタカナだけの語は，点数を下げても Zenzai の選び方を変え，ふだんの書き方や語の切れ目を変えてしまったためです
 
 ## 評価
 
